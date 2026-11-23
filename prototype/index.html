@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>章序 · 论文写作台</title>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --surface: #ffffff;
+    --surface-2: #f1f3f6;
+    --border: #e4e7ec;
+    --border-strong: #d0d5dd;
+    --text: #1f2430;
+    --text-2: #5b6472;
+    --text-3: #98a1b0;
+    --accent: #6c5ce7;
+    --accent-soft: #efecff;
+    --accent-2: #5b4bd6;
+    --green: #16a34a;
+    --green-soft: #e8f7ee;
+    --amber: #d97706;
+    --amber-soft: #fdf3e2;
+    --blue: #2563eb;
+    --blue-soft: #e8f0ff;
+    --gray-soft: #eef0f3;
+    --radius: 12px;
+    --shadow: 0 1px 3px rgba(16,24,40,.06), 0 1px 2px rgba(16,24,40,.04);
+    --shadow-lg: 0 8px 24px rgba(16,24,40,.1);
+    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font); background: var(--bg); color: var(--text); font-size: 14px; height: 100vh; overflow: hidden; }
+  button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+  .app { display: flex; flex-direction: column; height: 100vh; }
+
+  /* Title bar */
+  .titlebar { height: 52px; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 20px; gap: 16px; flex-shrink: 0; }
+  .logo { display: flex; align-items: center; gap: 9px; font-weight: 700; font-size: 16px; letter-spacing: .5px; }
+  .logo-mark { width: 28px; height: 28px; background: var(--accent); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 15px; }
+  .project-name { color: var(--text-2); font-size: 13px; padding-left: 16px; border-left: 1px solid var(--border); display: flex; align-items: center; gap: 6px; }
+  .project-name .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+  .titlebar-spacer { flex: 1; }
+  .saved-hint { font-size: 12px; color: var(--text-3); display: flex; align-items: center; gap: 5px; }
+  .saved-hint svg { width: 14px; height: 14px; }
+  .btn { padding: 7px 14px; border-radius: 8px; font-size: 13px; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; transition: all .15s; }
+  .btn-ghost { color: var(--text-2); }
+  .btn-ghost:hover { background: var(--surface-2); }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: var(--accent-2); }
+  .btn svg { width: 15px; height: 15px; }
+
+  /* Layout */
+  .main { display: flex; flex: 1; min-height: 0; }
+
+  /* Sidebar */
+  .sidebar { width: 232px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; }
+  .nav { padding: 12px 10px; }
+  .nav-item { display: flex; align-items: center; gap: 11px; padding: 9px 12px; border-radius: 9px; color: var(--text-2); font-size: 13.5px; font-weight: 500; width: 100%; text-align: left; transition: all .12s; }
+  .nav-item:hover { background: var(--surface-2); }
+  .nav-item.active { background: var(--accent-soft); color: var(--accent); }
+  .nav-item svg { width: 17px; height: 17px; flex-shrink: 0; }
+  .nav-item .badge { margin-left: auto; font-size: 11px; background: var(--surface-2); padding: 1px 7px; border-radius: 10px; color: var(--text-3); }
+  .nav-item.active .badge { background: #fff; color: var(--accent); }
+  .sidebar-section { padding: 8px 12px; }
+  .section-label { font-size: 11px; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: .8px; padding: 8px 4px 6px; display: flex; justify-content: space-between; align-items: center; }
+  .section-label button { color: var(--text-3); font-size: 15px; line-height: 1; }
+  .stat-card { margin: 6px 12px 12px; padding: 12px; background: var(--surface-2); border-radius: 10px; }
+  .stat-row { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 8px; color: var(--text-2); }
+  .stat-row strong { color: var(--text); }
+  .progress-track { height: 6px; background: #e1e4e9; border-radius: 4px; overflow: hidden; }
+  .progress-fill { height: 100%; width: 45%; background: linear-gradient(90deg, var(--accent), #8b7cf0); border-radius: 4px; }
+  .sidebar-foot { margin-top: auto; padding: 14px; border-top: 1px solid var(--border); font-size: 11.5px; color: var(--text-3); line-height: 1.7; }
+  .sidebar-foot kbd { background: var(--surface-2); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; font-family: inherit; font-size: 10px; }
+
+  /* Content */
+  .content { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .view-header { height: 60px; padding: 0 28px; display: flex; align-items: center; border-bottom: 1px solid var(--border); background: var(--surface); flex-shrink: 0; }
+  .view-title { font-size: 17px; font-weight: 650; }
+  .view-subtitle { font-size: 12px; color: var(--text-3); margin-left: 12px; }
+  .view-header-actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+  .view { display: none; flex: 1; min-height: 0; }
+  .view.active { display: flex; }
+
+  /* Kanban */
+  .board { display: flex; gap: 16px; padding: 22px 28px; overflow-x: auto; flex: 1; align-items: flex-start; }
+  .column { width: 272px; flex-shrink: 0; }
+  .column-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; padding: 0 4px; }
+  .status-dot { width: 9px; height: 9px; border-radius: 50%; }
+  .column-title { font-weight: 600; font-size: 13.5px; }
+  .column-count { font-size: 12px; color: var(--text-3); }
+  .column-menu { margin-left: auto; color: var(--text-3); font-size: 16px; line-height: 1; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px; margin-bottom: 10px; box-shadow: var(--shadow); cursor: grab; transition: box-shadow .15s, transform .15s, border-color .15s; }
+  .card:hover { box-shadow: var(--shadow-lg); border-color: var(--border-strong); transform: translateY(-1px); }
+  .card:active { cursor: grabbing; }
+  .card.dragging { opacity: .4; }
+  .card-top { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 8px; }
+  .card-num { font-size: 11px; font-weight: 600; color: var(--accent); background: var(--accent-soft); padding: 2px 7px; border-radius: 5px; white-space: nowrap; }
+  .card-title { font-weight: 600; font-size: 14px; line-height: 1.4; flex: 1; }
+  .card-summary { font-size: 12px; color: var(--text-2); line-height: 1.6; margin-bottom: 12px; }
+  .card-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+  .tag { font-size: 10.5px; padding: 2px 8px; border-radius: 5px; background: var(--gray-soft); color: var(--text-2); }
+  .tag.warn { background: var(--amber-soft); color: var(--amber); }
+  .card-foot { display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: var(--text-3); border-top: 1px solid var(--border); padding-top: 10px; }
+  .card-foot .words { display: flex; align-items: center; gap: 4px; }
+  .avatar { width: 20px; height: 20px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); font-size: 10px; display: flex; align-items: center; justify-content: center; font-weight: 600; }
+  .column-add { width: 100%; padding: 10px; border: 1px dashed var(--border-strong); border-radius: 9px; color: var(--text-3); font-size: 12.5px; text-align: center; transition: all .15s; }
+  .column-add:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+
+  /* Outline view */
+  .outline-wrap { flex: 1; overflow: auto; padding: 24px 28px; }
+  .outline-tree { max-width: 760px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
+  .outline-row { display: flex; align-items: center; gap: 10px; padding: 11px 18px; border-bottom: 1px solid var(--border); font-size: 13.5px; transition: background .12s; }
+  .outline-row:last-child { border-bottom: none; }
+  .outline-row:hover { background: var(--surface-2); }
+  .outline-row.l1 { font-weight: 600; }
+  .outline-row.l2 { padding-left: 48px; color: var(--text-2); }
+  .outline-row.l3 { padding-left: 78px; color: var(--text-2); font-size: 13px; }
+  .outline-num { color: var(--text-3); font-size: 12px; min-width: 34px; font-variant-numeric: tabular-nums; }
+  .outline-status { width: 7px; height: 7px; border-radius: 50%; }
+  .outline-title { flex: 1; }
+  .outline-words { color: var(--text-3); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .outline-actions { display: flex; gap: 2px; opacity: 0; transition: opacity .15s; }
+  .outline-row:hover .outline-actions { opacity: 1; }
+  .icon-btn { width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; border-radius: 6px; color: var(--text-3); }
+  .icon-btn:hover { background: var(--surface-2); color: var(--text); }
+  .icon-btn svg { width: 14px; height: 14px; }
+  .drag-handle { color: var(--text-3); cursor: grab; opacity: .5; }
+  .drag-handle svg { width: 14px; height: 14px; }
+
+  /* Writing view */
+  .writing { flex: 1; display: flex; min-height: 0; }
+  .writing-sidebar { width: 200px; border-right: 1px solid var(--border); background: var(--surface); padding: 12px 8px; overflow: auto; flex-shrink: 0; }
+  .chapter-nav-item { padding: 8px 12px; border-radius: 8px; font-size: 13px; color: var(--text-2); display: flex; align-items: center; gap: 8px; margin-bottom: 2px; }
+  .chapter-nav-item.active { background: var(--accent-soft); color: var(--accent); font-weight: 500; }
+  .chapter-nav-item .st { width: 6px; height: 6px; border-radius: 50%; margin-left: auto; }
+  .editor-pane { flex: 1; min-width: 0; background: var(--surface); display: flex; flex-direction: column; }
+  .editor-toolbar { height: 42px; border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 16px; gap: 4px; flex-shrink: 0; }
+  .tool-btn { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 6px; color: var(--text-2); font-size: 13px; font-weight: 600; }
+  .tool-btn:hover { background: var(--surface-2); }
+  .tool-sep { width: 1px; height: 18px; background: var(--border); margin: 0 6px; }
+  .editor-body { flex: 1; display: flex; min-height: 0; }
+  .code-area { flex: 1; padding: 22px 28px; overflow: auto; font-family: "SF Mono", Consolas, "Liberation Mono", monospace; font-size: 13px; line-height: 1.75; color: var(--text); }
+  .code-line { display: flex; }
+  .line-num { width: 36px; text-align: right; color: #c4cad4; user-select: none; margin-right: 22px; font-size: 12px; }
+  .code-content { white-space: pre; }
+  .cm-cmd { color: #7c3aed; }
+  .cm-arg { color: #0f766e; }
+  .cm-comment { color: #94a3b8; font-style: italic; }
+  .cm-text { color: var(--text); }
+  .preview-pane { width: 320px; border-left: 1px solid var(--border); background: #eceef1; display: flex; flex-direction: column; flex-shrink: 0; }
+  .preview-head { height: 42px; border-bottom: 1px solid var(--border); background: var(--surface); display: flex; align-items: center; padding: 0 14px; font-size: 12px; color: var(--text-2); gap: 8px; }
+  .preview-head .live { width: 7px; height: 7px; border-radius: 50%; background: var(--green); }
+  .pdf-page { width: 240px; min-height: 300px; background: #fff; margin: 18px auto; box-shadow: 0 2px 10px rgba(0,0,0,.1); padding: 28px 24px; }
+  .pdf-title { font-family: Georgia, serif; font-size: 14px; font-weight: bold; text-align: center; margin-bottom: 18px; color: #111; }
+  .pdf-h { font-family: Georgia, serif; font-size: 11px; font-weight: bold; margin: 14px 0 7px; color: #111; }
+  .pdf-p { font-family: Georgia, serif; font-size: 8px; line-height: 1.85; color: #333; text-align: justify; }
+  .compile-bar { height: 44px; border-top: 1px solid var(--border); background: var(--surface); display: flex; align-items: center; padding: 0 16px; gap: 10px; flex-shrink: 0; }
+  .compile-status { font-size: 12px; color: var(--text-3); display: flex; align-items: center; gap: 6px; }
+  .compile-status .ok { color: var(--green); }
+
+  /* Toast */
+  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px); background: #1f2430; color: #fff; padding: 10px 18px; border-radius: 9px; font-size: 13px; box-shadow: var(--shadow-lg); opacity: 0; transition: all .25s; pointer-events: none; z-index: 100; }
+  .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+  @media (max-width: 1000px) { .preview-pane { display: none; } .sidebar { width: 190px; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- Title bar -->
+  <div class="titlebar">
+    <div class="logo"><div class="logo-mark">章</div>章序</div>
+    <div class="project-name"><span class="dot"></span>我的博士论文</div>
+    <div class="titlebar-spacer"></div>
+    <div class="saved-hint">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+      已自动保存
+    </div>
+    <button class="btn btn-ghost" onclick="toast('项目文件夹：~/Documents/我的博士论文')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+      打开文件夹
+    </button>
+    <button class="btn btn-primary" onclick="compile()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3l14 9-14 9V3z"/></svg>
+      编译 PDF
+    </button>
+  </div>
+
+  <div class="main">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <nav class="nav">
+        <button class="nav-item active" data-view="board" onclick="switchView('board')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="18" rx="1"/><rect x="14" y="3" width="7" height="11" rx="1"/></svg>
+          章节看板 <span class="badge">8</span>
+        </button>
+        <button class="nav-item" data-view="outline" onclick="switchView('outline')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+          论文大纲
+        </button>
+        <button class="nav-item" data-view="writing" onclick="switchView('writing')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          写作
+        </button>
+      </nav>
+      <div class="sidebar-section">
+        <div class="section-label">项目统计 <button onclick="toast('统计功能开发中')">⋯</button></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-row"><span>总字数</span><strong>32,480</strong></div>
+        <div class="stat-row"><span>本周新增</span><strong style="color:var(--green)">+2,140</strong></div>
+        <div class="stat-row"><span>完成进度</span><strong>45%</strong></div>
+        <div class="progress-track"><div class="progress-fill"></div></div>
+      </div>
+      <div class="sidebar-foot">
+        提示：拖拽卡片可改章节状态与顺序<br>
+        <kbd>⌘</kbd> + <kbd>B</kbd> 编译 · <kbd>⌘</kbd> + <kbd>S</kbd> 保存
+      </div>
+    </aside>
+
+    <!-- Content -->
+    <main class="content">
+      <!-- Kanban view -->
+      <div class="view active" id="view-board">
+        <div class="view-header">
+          <div class="view-title">章节看板</div>
+          <div class="view-subtitle">拖动卡片推进写作进度</div>
+          <div class="view-header-actions">
+            <button class="btn btn-ghost" onclick="toast('已切换为紧凑模式')">紧凑排列</button>
+            <button class="btn btn-primary" onclick="toast('新建章节卡片')">＋ 新建章节</button>
+          </div>
+        </div>
+        <div class="board" id="board">
+          <div class="column" data-status="idea">
+            <div class="column-head"><span class="status-dot" style="background:#98a1b0"></span><span class="column-title">构思中</span><span class="column-count">2</span><span class="column-menu">⋯</span></div>
+            <div class="card" draggable="true" ondragstart="dragStart(event)" ondragend="dragEnd(event)">
+              <div class="card-top"><span class="card-num">第6章</span><span class="card-title">讨论与展望</span></div>
+              <div class="card-summary">主要发现的理论意义、研究局限与未来方向</div>
+              <div class="card-tags"><span class="tag">待补文献</span></div>
+              <div class="card-foot"><span class="words">◎ 0 字</span><span class="avatar">我</span></div>
+            </div>
+            <div class="card" draggable="true" ondragstart="dragStart(event)" ondragend="dragEnd(event)">
+              <div class="card-top"><span class="card-num">附录</span><span class="card-title">补充材料</span></div>
+              <div class="card-summary">问卷条目、描述性统计表、稳健性检验</div>
+              <div class="card-tags"></div>
+              <div class="card-foot"><span class="words">◎ 0 字</span><span class="avatar">我</span></div>
+            </div>
+            <button class="column-add" onclick="toast('在「构思中」新增章节')">＋ 添加章节</button>
+          </div>
+
+          <div class="column" data-status="draft">
+            <div class="column-head"><span class="status-dot" style="background:var(--blue)"></span><span class="column-title">初稿</span><span class="column-count">2</span><span class="column-menu">⋯</span></div>
+            <div class="card" draggable="true" ondragstart="dragStart(event)" ondragend="dragEnd(event)" ondblclick="openChapter('第3章 研究方法')">
+              <div class="card-top"><span class="card-num">第3章</span><span class="card-title">研究方法</span></div>
+              <div class="card-summary">贝叶斯层次模型设定、先验选择、数据预处理流程</div>
+              <div class="card-tags"><span class="tag warn">缺 2 张图</span></div>
+              <div class="card-foot"><span class="words">◎ 6,820 字</span><span class="avatar">我</span></div>
+            </div>
+            <div class="card" draggable="true" ondragstart="dragStart(event)" ondragend="dragEnd(event)" ondblclick="openChapter('第4章 数据分析')">
+              <div class="card-top"><span class="card-num">第4章</span><span class="card-title">数据分析结果</span></div>
+              <div class="card-summary">变点检测结果、个体异质性分析、跨领域关联</div>
+              <div class="card-tags"><span class="tag warn">待核对引用</span></div>
+              <div class="card-foot"><span class="words">◎ 8,150 字</span><span class="avatar">我</span></div>
+            </div>
+            <button class="column-add" onclick="toast('在「初稿」新增章节')">＋ 添加章节</button>
+          </div>
+
+          <div class="column" data-status="revising">
+            <div class="column-head"><span class="status-dot" style="background:var(--amber)"></span><span class="column-title">修改中</span><span class="column-count">2</span><span class="column-menu">⋯</span></div>
+            <div class="card" draggable="true" ondragstart="dragStart(event)" ondragend="dragEnd(event)" ondblclick="openChapter('第2章 文献综述')">
+              <div class="card-top"><span class="card-num">第2章</span><span class="card-title">文献综述</span></div>
+              <div class="card-summary">充电行为研究、习惯形成理论、贝叶斯方法应用三条脉络</div>
+              <div class="card-tags"><span class="tag warn">导师批注 5 条</span></div>
+              <div class="card-foot"><span class="words">◎ 9,340 字</span><span class="avatar">我</span></div>
+            </div>
+            <div class="card" draggable="true" ondragstart="dragStart(event)" ondragend="dragEnd(event)">
+              <div class="card-top"><span class="card-num">第5章</span><span class="card-title">结论</span></div>
+              <div class="card-summary">核心结论回顾与贡献总结</div>
+              <div class="card-tags"></div>
+              <div class="card-foot"><span class="words">◎ 2,100 字</span><span class="avatar">我</span></div>
+            </div>
+            <button class="column-add" onclick="toast('在「修改中」新增章节')">＋ 添加章节</button>
+          </div>
+
+          <div class="column" data-status="done">
+            <div class="column-head"><span class="status-dot" style="background:var(--green)"></span><span class="column-title">已定稿</span><span class="column-count">2</span><span class="column-menu">⋯</span></div>
+            <div class="card" draggable="true" ondragstart="dragStart(event)" ondragend="dragEnd(event)" ondblclick="openChapter('第1章 绪论')">
+              <div class="card-top"><span class="card-num">第1章</span><span class="card-title">绪论</span></div>
+              <div class="card-summary">研究背景、问题陈述、研究意义与论文结构</div>
+              <div class="card-tags"><span class="tag">✓ 已通过</span></div>
+              <div class="card-foot"><span class="words">◎ 5,270 字</span><span class="avatar">我</span></div>
+            </div>
+            <div class="card" draggable="true" ondragstart="dragStart(event)" ondragend="dragEnd(event)">
+              <div class="card-top"><span class="card-num">摘要</span><span class="card-title">摘要与关键词</span></div>
+              <div class="card-summary">中英文摘要</div>
+              <div class="card-tags"><span class="tag">✓ 已通过</span></div>
+              <div class="card-foot"><span class="words">◎ 900 字</span><span class="avatar">我</span></div>
+            </div>
+            <button class="column-add" onclick="toast('在「已定稿」新增章节')">＋ 添加章节</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Outline view -->
+      <div class="view" id="view-outline">
+        <div class="view-header">
+          <div class="view-title">论文大纲</div>
+          <div class="view-subtitle">拖拽调整层级与顺序，正文编号自动同步</div>
+          <div class="view-header-actions">
+            <button class="btn btn-ghost" onclick="toast('大纲已展开')">全部展开</button>
+            <button class="btn btn-primary" onclick="toast('新增章节节点')">＋ 添加节点</button>
+          </div>
+        </div>
+        <div class="outline-wrap">
+          <div class="outline-tree" id="outlineTree">
+            <div class="outline-row l1"><span class="drag-handle">⋮⋮</span><span class="outline-num">一</span><span class="outline-status" style="background:var(--green)"></span><span class="outline-title">绪论</span><span class="outline-words">5,270 字</span><span class="outline-actions"><button class="icon-btn" title="上移">↑</button><button class="icon-btn" title="下移">↓</button><button class="icon-btn" title="编辑">✎</button></span></div>
+            <div class="outline-row l2"><span class="drag-handle">⋮⋮</span><span class="outline-num">1.1</span><span class="outline-status" style="background:var(--green)"></span><span class="outline-title">研究背景与意义</span><span class="outline-words">1,840 字</span><span class="outline-actions"><button class="icon-btn">↑</button><button class="icon-btn">↓</button><button class="icon-btn">✎</button></span></div>
+            <div class="outline-row l2"><span class="drag-handle">⋮⋮</span><span class="outline-num">1.2</span><span class="outline-status" style="background:var(--green)"></span><span class="outline-title">研究问题与目标</span><span class="outline-words">1,520 字</span><span class="outline-actions"><button class="icon-btn">↑</button><button class="icon-btn">↓</button><button class="icon-btn">✎</button></span></div>
+            <div class="outline-row l2"><span class="drag-handle">⋮⋮</span><span class="outline-num">1.3</span><span class="outline-status" style="background:var(--green)"></span><span class="outline-title">论文结构安排</span><span class="outline-words">680 字</span><span class="outline-actions"><button class="icon-btn">↑</button><button class="icon-btn">↓</button><button class="icon-btn">✎</button></span></div>
+            <div class="outline-row l1"><span class="drag-handle">⋮⋮</span><span class="outline-num">二</span><span class="outline-status" style="background:var(--amber)"></span><span class="outline-title">文献综述</span><span class="outline-words">9,340 字</span><span class="outline-actions"><button class="icon-btn">↑</button><button class="icon-btn">↓</button><button class="icon-btn">✎</button></span></div>
+            <div class="outline-row l2"><span class="drag-handle">⋮⋮</span><span class="outline-num">2.1</span><span class="outline-status" style="background:var(--green)"></span><span class="outline-title">手机充电行为研究</span><span class="outline-words">3,200 字</span><span class="outline-actions"><button class="icon-btn">↑</button><button class="icon-btn">↓</button><button class="icon-btn">✎</button></span></div>
+            <div class="outline-row l2"><span class="drag-handle">⋮⋮</span><span class="outline-num">2.2</span><span class="outline-status" style="background:var(--amber)"></span><span class="outline-title">习惯形成与行为阈值理论</span><span class="outline-words">3,110 字</span><span class="outline-actions"><button class="icon-btn">↑</button><button class="icon-btn">↓</button><button class="icon-btn">✎</button></span></div>
+            <div class="outline-row l3"><span class="drag-handle">⋮⋮</span><span class="outline-num">2.2.1</span><span class="outline-status" style="background:var(--text-3)"></span><span class="outline-title">遗忘机制与时间衰减</span><span class="outline-words">—</span><span class="outline-actions"><button class="icon-btn">↑</button><button class="icon-btn">↓</button><button class="icon-btn">✎</button></span></div>
+            <div class="outline-row l2"><span class="drag-handle">⋮⋮</span><span class="outline-num">2.3</span><span class="outline-status" style="background:var(--amber)"></span><span class="outline-title">贝叶斯方法在行为研究中的应用</span><span class="outline-words">3,030 字</span><span class="outline-actions"><button class="icon-btn">↑</button><button class="icon-btn">↓</button><button class="icon-btn">✎</button></span></div>
+            <div class="outline-row l1"><span class="drag-handle">⋮⋮</span><span class="outline-num">三</span><span class="outline-status" style="background:var(--blue)"></span><span class="outline-title">研究方法</span><span class="outline-words">6,820 字</span><span class="outline-actions"><button class="icon-btn">↑</button><button class="icon-btn">↓</button><button class="icon-btn">✎</button></span></div>
+            <div class="outline-row l2"><span class="drag-handle">⋮⋮</span><span class="outline-num">3.1</span><span class="outline-status" style="background:var(--blue)"></span><span class="outline-title">数据与参与者</span><span class="outline-words">1,460 字</span><span class="outline-actions"><button class="icon-btn">↑</button><button class="icon-btn">↓</button><button class="icon-btn">✎</button></span></div>
+            <div class="outline-row l2"><span class="drag-handle">⋮⋮</span><span class="outline-num">3.2</span><span class="outline-status" style="background:var(--blue)"></span><span class="outline-title">贝叶斯层次模型设定</span><span class="outline-words">3,280 字</span><span class="outline-actions"><button class="icon-btn">↑</button><button class="icon-btn">↓</button><button class="icon-btn">✎</button></span></div>
+            <div class="outline-row l2"><span class="drag-handle">⋮⋮</span><span class="outline-num">3.3</span><span class="outline-status" style="background:var(--blue)"></span><span class="outline-title">变点检测与模型检验</span><span class="outline-words">2,080 字</span><span class="outline-actions"><button class="icon-btn">↑</button><button class="icon-btn">↓</button><button class="icon-btn">✎</button></span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Writing view -->
+      <div class="view" id="view-writing">
+        <div class="view-header">
+          <div class="view-title">写作</div>
+          <div class="view-subtitle" id="writingChapter">第3章 研究方法 · chapters/03-method.tex</div>
+          <div class="view-header-actions">
+            <button class="btn btn-ghost" onclick="toast('已打开文件所在文件夹')">定位文件</button>
+          </div>
+        </div>
+        <div class="writing">
+          <aside class="writing-sidebar">
+            <div class="section-label">章节</div>
+            <div class="chapter-nav-item" onclick="openChapter('第1章 绪论')">绪论 <span class="st" style="background:var(--green)"></span></div>
+            <div class="chapter-nav-item" onclick="openChapter('第2章 文献综述')">文献综述 <span class="st" style="background:var(--amber)"></span></div>
+            <div class="chapter-nav-item active" onclick="openChapter('第3章 研究方法')">研究方法 <span class="st" style="background:var(--blue)"></span></div>
+            <div class="chapter-nav-item" onclick="openChapter('第4章 数据分析')">数据分析 <span class="st" style="background:var(--blue)"></span></div>
+            <div class="chapter-nav-item" onclick="openChapter('第5章 结论')">结论 <span class="st" style="background:var(--amber)"></span></div>
+            <div class="chapter-nav-item" onclick="openChapter('第6章 讨论')">讨论 <span class="st" style="background:var(--text-3)"></span></div>
+          </aside>
+          <div class="editor-pane">
+            <div class="editor-toolbar">
+              <button class="tool-btn" title="章节">H</button>
+              <button class="tool-btn" title="加粗"><b>B</b></button>
+              <button class="tool-btn" title="斜体"><i>I</i></button>
+              <div class="tool-sep"></div>
+              <button class="tool-btn" title="插入公式">∑</button>
+              <button class="tool-btn" title="插入引用">❝</button>
+              <button class="tool-btn" title="插入图片">▧</button>
+              <div class="tool-sep"></div>
+              <button class="tool-btn" title="插入标签">⌗</button>
+              <button class="btn btn-ghost" style="margin-left:auto;font-size:12px" onclick="toast('分屏对照已开启')">⊞ 分屏对照</button>
+            </div>
+            <div class="editor-body">
+              <div class="code-area" id="codeArea">
+                <div class="code-line"><span class="line-num">1</span><span class="code-content"><span class="cm-cmd">\section</span><span class="cm-arg">{研究方法}</span></span></div>
+                <div class="code-line"><span class="line-num">2</span><span class="code-content"></span></div>
+                <div class="code-line"><span class="line-num">3</span><span class="code-content"><span class="cm-comment">% 3.1 数据与参与者</span></span></div>
+                <div class="code-line"><span class="line-num">4</span><span class="code-content"><span class="cm-cmd">\subsection</span><span class="cm-arg">{数据与参与者}</span></span></div>
+                <div class="code-line"><span class="line-num">5</span><span class="code-content"></span></div>
+                <div class="code-line"><span class="line-num">6</span><span class="code-content"><span class="cm-text">本研究使用来自 </span><span class="cm-cmd">\num</span><span class="cm-arg">{779}</span><span class="cm-text"> 名智能手机用户的充电行为数据。</span></span></div>
+                <div class="code-line"><span class="line-num">7</span><span class="code-content"><span class="cm-text">数据采集时段为 </span><span class="cm-cmd">\num</span><span class="cm-arg">{2024}</span><span class="cm-text"> 年 </span><span class="cm-cmd">\num</span><span class="cm-arg">{3}</span><span class="cm-text"> 月至 </span><span class="cm-cmd">\num</span><span class="cm-arg">{9}</span><span class="cm-text"> 月，共计约 </span><span class="cm-cmd">\num</span><span class="cm-arg">{18}</span><span class="cm-text"> 万条充电事件记录 </span><span class="cm-cmd">\cite</span><span class="cm-arg">{zhang2023charging}</span><span class="cm-text">。</span></span></div>
+                <div class="code-line"><span class="line-num">8</span><span class="code-content"></span></div>
+                <div class="code-line"><span class="line-num">9</span><span class="code-content"><span class="cm-cmd">\subsection</span><span class="cm-arg">{贝叶斯层次模型设定}</span><span class="cm-cmd">\label</span><span class="cm-arg">{sec:model}</span></span></div>
+                <div class="code-line"><span class="line-num">10</span><span class="code-content"></span></div>
+                <div class="code-line"><span class="line-num">11</span><span class="code-content"><span class="cm-text">为刻画个体层面的异质性，我们构建如下层次模型：</span></span></div>
+                <div class="code-line"><span class="line-num">12</span><span class="code-content"></span></div>
+                <div class="code-line"><span class="line-num">13</span><span class="code-content"><span class="cm-cmd">\begin</span><span class="cm-arg">{equation}</span></span></div>
+                <div class="code-line"><span class="line-num">14</span><span class="code-content">  y_{ij} <span class="cm-arg">\sim</span> \mathcal{N}(\alpha_i + \beta_i x_{ij}, \sigma^2)</span></div>
+                <div class="code-line"><span class="line-num">15</span><span class="code-content"><span class="cm-cmd">\end</span><span class="cm-arg">{equation}</span></span></div>
+                <div class="code-line"><span class="line-num">16</span><span class="code-content"></span></div>
+                <div class="code-line"><span class="line-num">17</span><span class="code-content"><span class="cm-text">其中个体参数 </span><span class="cm-arg">\alpha_i</span><span class="cm-text"> 服从群体层面的正态分布……</span><span class="cm-cmd">|</span></span></div>
+              </div>
+              <div class="preview-pane">
+                <div class="preview-head"><span class="live"></span>PDF 预览 · 实时同步</div>
+                <div class="pdf-page">
+                  <div class="pdf-title">第 3 章　研究方法</div>
+                  <div class="pdf-h">3.1　数据与参与者</div>
+                  <div class="pdf-p">本研究使用来自 779 名智能手机用户的充电行为数据。数据采集时段为 2024 年 3 月至 2024 年 9 月，共计约 18 万条充电事件记录 [1]。本研究经伦理委员会审查通过，所有参与者均签署知情同意书。</div>
+                  <div class="pdf-h">3.2　贝叶斯层次模型设定</div>
+                  <div class="pdf-p">为刻画个体层面的异质性，我们构建如下层次模型：</div>
+                  <div style="text-align:center;font-family:Georgia,serif;font-size:10px;margin:12px 0">y<sub>ij</sub> ~ N(α<sub>i</sub> + β<sub>i</sub>x<sub>ij</sub>, σ²)</div>
+                  <div class="pdf-p">其中个体参数 α<sub>i</sub> 服从群体层面的正态分布，从而允许不同用户具有不同的充电阈值与响应速度……</div>
+                </div>
+              </div>
+            </div>
+            <div class="compile-bar">
+              <div class="compile-status"><span class="ok">●</span> 上次编译成功 · 14:32 · 0.8s</div>
+              <div style="flex:1"></div>
+              <span style="font-size:11px;color:var(--text-3)">tectonic · main.tex</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  function switchView(view) {
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    document.getElementById('view-' + view).classList.add('active');
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.querySelector('.nav-item[data-view="' + view + '"]').classList.add('active');
+  }
+
+  function toast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(t._timer);
+    t._timer = setTimeout(() => t.classList.remove('show'), 2200);
+  }
+
+  function compile() {
+    toast('正在调用 tectonic 编译…');
+    setTimeout(() => toast('编译成功！PDF 已更新 · 0.8s'), 1400);
+  }
+
+  function openChapter(name) {
+    document.getElementById('writingChapter').textContent = name + ' · chapters/' + name.replace(/\s/g, '-') + '.tex';
+    switchView('writing');
+  }
+
+  let dragged = null;
+  function dragStart(e) {
+    dragged = e.target;
+    e.target.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+  }
+  function dragEnd(e) {
+    e.target.classList.remove('dragging');
+    dragged = null;
+  }
+  document.querySelectorAll('.column').forEach(col => {
+    col.addEventListener('dragover', e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; });
+    col.addEventListener('drop', e => {
+      e.preventDefault();
+      if (!dragged) return;
+      col.appendChild(dragged);
+      const status = col.querySelector('.column-title').textContent;
+      const count = col.querySelectorAll('.card').length;
+      col.querySelector('.column-count').textContent = count;
+      document.querySelectorAll('.column').forEach(c => {
+        c.querySelector('.column-count').textContent = c.querySelectorAll('.card').length;
+      });
+      const title = dragged.querySelector('.card-title').textContent;
+      toast('「' + title + '」已移至「' + status + '」，main.tex 顺序已同步');
+    });
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+# M0 阶段的临时验证工具与下载缓存（rustup/tectonic zip/VS BuildTools 等，共 ~86MB）
+.m0-tools/
+
+# 系统 / 编辑器
+.DS_Store
+Thumbs.db
+*.log
+.idea/
+.vscode/
+
+# WorkBuddy 工作区内部记忆（开发日志，不属于产品源码）
+.workbuddy/
