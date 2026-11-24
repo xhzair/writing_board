@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import * as api from "./api";
@@ -6,6 +6,9 @@ import type { ProjectInfo, Chapter, CompileResult } from "./types";
 import { STATUS_META, STATUS_KEYS } from "./types";
 import LatexEditor, { type LatexEditorHandle } from "./LatexEditor";
 import PdfPreview from "./PdfPreview";
+import SettingsPanel from "./SettingsPanel";
+import ShortcutsHelp from "./ShortcutsHelp";
+import { useSettings, countWords } from "./utils";
 import "./App.css";
 
 type View = "board" | "outline" | "writing";
@@ -23,6 +26,12 @@ function App() {
   const [pdfVersion, setPdfVersion] = useState(0);
   const [editorLayout, setEditorLayout] = useState<"split" | "editor" | "preview">("split");
   const editorRef = useRef<LatexEditorHandle>(null);
+  const [settings, updateSettings] = useSettings();
+  const [showSettings, setShowSettings] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
+  const [saveState, setSaveState] = useState<"saved" | "dirty" | "saving">("saved");
+  const [draggingSplit, setDraggingSplit] = useState(false);
+  const splitRef = useRef<HTMLDivElement>(null);
   const [toast, setToast] = useState("");
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<{ status: string; beforeId: string | null } | null>(null);
@@ -171,12 +180,50 @@ function App() {
     );
   };
 
+  // ---------- 保存逻辑（防抖 + 切换前落盘） ----------
+  const saveTimerRef = useRef<number | null>(null);
+  const pendingRef = useRef<{ root: string; file: string; content: string } | null>(null);
+
+  // 把待保存内容写入其记录的文件；写哪个文件由 pending 决定，不依赖闭包里的 activeChapter
+  const flushSave = useCallback(async () => {
+    if (saveTimerRef.current) {
+      window.clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
+    const pending = pendingRef.current;
+    pendingRef.current = null;
+    if (!pending) return;
+    setSaveState("saving");
+    try {
+      await api.writeChapter(pending.root, pending.file, pending.content);
+      setSaveState("saved");
+      setCompileMsg("已自动保存");
+    } catch (e) {
+      setSaveState("dirty");
+      showToast(`自动保存失败: ${e}`);
+    }
+  }, [showToast]);
+
+  const handleContentChange = useCallback((value: string) => {
+    setContent(value);
+    if (!project || !activeChapter) return;
+    pendingRef.current = { root: project.root, file: activeChapter.file, content: value };
+    setSaveState("dirty");
+    if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = window.setTimeout(() => { void flushSave(); }, settings.autoSaveMs);
+  }, [project, activeChapter, flushSave, settings.autoSaveMs]);
+
+  const saveNow = useCallback(() => { void flushSave(); }, [flushSave]);
+
   const openChapterForEdit = async (ch: Chapter) => {
     if (!project) return;
     try {
+      // 切换前先落盘，避免旧章节的防抖回调写到新章节文件
+      await flushSave();
       const text = await api.readChapter(project.root, ch.file);
       setContent(text);
       setActiveChapter(ch);
+      setSaveState("saved");
       setView("writing");
     } catch (e) {
       showToast(`读取章节失败: ${e}`);
@@ -249,23 +296,10 @@ function App() {
     }
   };
 
-  const saveTimer = useRef<number | null>(null);
-  const handleContentChange = (value: string) => {
-    setContent(value);
-    if (saveTimer.current) window.clearTimeout(saveTimer.current);
-    saveTimer.current = window.setTimeout(async () => {
-      if (!project || !activeChapter) return;
-      try {
-        await api.writeChapter(project.root, activeChapter.file, value);
-        setCompileMsg("已自动保存");
-      } catch (e) {
-        showToast(`自动保存失败: ${e}`);
-      }
-    }, 800);
-  };
-
   const handleCompile = async () => {
     if (!project || compiling) return;
+    // 编译前先把未保存的编辑落盘，保证编译的是最新内容
+    await flushSave();
     setCompiling(true);
     setCompileMsg("正在编译…");
     setShowLog(false);
@@ -304,6 +338,81 @@ function App() {
   };
 
   const doneCount = chapters.filter((c) => c.status === "done").length;
+
+  // 字数统计：当前章节实时算，全篇异步读取各章节累加
+  const currentWords = countWords(content);
+  const [totalWords, setTotalWords] = useState(0);
+  useEffect(() => {
+    if (!project) return;
+    let cancelled = false;
+    (async () => {
+      let sum = 0;
+      for (const ch of chapters) {
+        try {
+          sum += countWords(await api.readChapter(project.root, ch.file));
+        } catch { /* 单章读取失败则跳过 */ }
+      }
+      if (!cancelled) setTotalWords(sum);
+    })();
+    return () => { cancelled = true; };
+  }, [project, chapters]);
+
+  // 分屏宽度拖拽
+  const startSplitDrag = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setDraggingSplit(true);
+    const onMove = (ev: MouseEvent) => {
+      const el = splitRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const ratio = (ev.clientX - rect.left) / rect.width;
+      updateSettings({ splitRatio: Math.max(0.2, Math.min(0.8, ratio)) });
+    };
+    const onUp = () => {
+      setDraggingSplit(false);
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  };
+
+  // 全局快捷键
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const mod = e.ctrlKey || e.metaKey;
+      // 弹窗打开时，只响应 Esc
+      if (prompt || showSettings || showHelp) {
+        if (e.key === "Escape") {
+          if (prompt) closePrompt(null);
+          if (showSettings) setShowSettings(false);
+          if (showHelp) setShowHelp(false);
+        }
+        return;
+      }
+      if (mod && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        if (project) { saveNow(); showToast("已保存"); }
+        return;
+      }
+      if (mod && e.key.toLowerCase() === "b") { e.preventDefault(); if (project) void handleCompile(); return; }
+      if (mod && e.key === "1") { e.preventDefault(); setView("board"); return; }
+      if (mod && e.key === "2") { e.preventDefault(); setView("outline"); return; }
+      if (mod && e.key === "3") { e.preventDefault(); setView("writing"); return; }
+      if (e.key === "?" || (e.key === "/" && e.shiftKey)) { e.preventDefault(); setShowHelp(true); return; }
+      if (e.key === "Escape") { setCompileResult(null); return; }
+      // 写作视图章节切换
+      if (view === "writing" && activeChapter && e.altKey && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
+        e.preventDefault();
+        const sorted = [...chapters].sort((a, b) => a.order - b.order);
+        const idx = sorted.findIndex((c) => c.id === activeChapter.id);
+        const next = sorted[idx + (e.key === "ArrowRight" ? 1 : -1)];
+        if (next) void openChapterForEdit(next);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [prompt, showSettings, showHelp, saveNow, showToast, handleCompile, view, activeChapter, chapters, project]);
 
   const promptNode = prompt && (
     <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) closePrompt(null); }}>
@@ -366,9 +475,16 @@ function App() {
         <div className="logo"><div className="logo-mark">章</div>章序</div>
         <div className="project-name"><span className="dot" />{project.manifest.title}</div>
         <div className="spacer" />
-        <span className="saved">● 本地项目 · {project.root}</span>
+        {view === "writing" && activeChapter && (
+          <span className={`save-indicator ${saveState}`} title="保存状态">
+            {saveState === "saving" ? "◌ 保存中" : saveState === "dirty" ? "● 未保存" : "✓ 已保存"}
+          </span>
+        )}
+        <span className="saved" title={project.root}>● 本地项目 · {project.root}</span>
+        <button className="btn btn-ghost btn-icon" onClick={() => setShowHelp(true)} title="快捷键 (?)">⌨</button>
+        <button className="btn btn-ghost btn-icon" onClick={() => setShowSettings(true)} title="设置">⚙</button>
         <button className="btn btn-ghost" onClick={() => revealItemInDir(project.root)}>打开文件夹</button>
-        <button className="btn btn-primary" onClick={handleCompile} disabled={compiling}>
+        <button className="btn btn-primary" onClick={handleCompile} disabled={compiling} title="编译 PDF (Ctrl+B)">
           {compiling ? "编译中…" : "▶ 编译 PDF"}
         </button>
       </header>
@@ -389,6 +505,7 @@ function App() {
           <div className="stat-card">
             <div className="stat-row"><span>章节总数</span><strong>{chapters.length}</strong></div>
             <div className="stat-row"><span>已定稿</span><strong style={{color: "#16a34a"}}>{doneCount}</strong></div>
+            <div className="stat-row"><span>全篇字数</span><strong>{totalWords.toLocaleString()}</strong></div>
             <div className="stat-row"><span>完成进度</span><strong>{chapters.length ? Math.round((doneCount / chapters.length) * 100) : 0}%</strong></div>
             <div className="progress-track"><div className="progress-fill" style={{ width: `${chapters.length ? (doneCount / chapters.length) * 100 : 0}%` }} /></div>
           </div>
@@ -571,9 +688,15 @@ function App() {
                     ))}
                   </aside>
 
-                  <div className={`writing-main layout-${editorLayout}`}>
+                  <div
+                    className={`writing-main layout-${editorLayout} ${draggingSplit ? "splitting" : ""}`}
+                    ref={splitRef}
+                  >
                     {editorLayout !== "preview" && (
-                      <div className="editor-pane">
+                      <div
+                        className="editor-pane"
+                        style={editorLayout === "split" ? { flexBasis: `${settings.splitRatio * 100}%` } : undefined}
+                      >
                         <div className="editor-toolbar">
                           <span className="tool-label">LaTeX 源码</span>
                           <span className="tool-sep" />
@@ -607,16 +730,32 @@ function App() {
                             {showLog && <pre className="issue-log">{compileResult.log}</pre>}
                           </div>
                         )}
-                        <LatexEditor ref={editorRef} value={content} onChange={handleContentChange} />
+                        <LatexEditor
+                          ref={editorRef}
+                          value={content}
+                          onChange={handleContentChange}
+                          fontSize={settings.fontSize}
+                          showLineNumbers={settings.showLineNumbers}
+                        />
                         <div className="compile-bar">
                           <span className={`compile-status ${compileMsg.includes("成功") || compileMsg.includes("已自动保存") ? "ok" : ""} ${compileResult && !compileResult.success ? "err" : ""}`}>
                             {compileMsg || "编辑后自动保存"}
                           </span>
+                          <span className="word-count">{currentWords.toLocaleString()} 字</span>
                           <span className="spacer" />
-                          <button className="btn btn-primary btn-sm" onClick={handleCompile} disabled={compiling}>
+                          <button className="btn btn-primary btn-sm" onClick={handleCompile} disabled={compiling} title="编译 PDF (Ctrl+B)">
                             {compiling ? "编译中…" : "编译看看"}
                           </button>
                         </div>
+                      </div>
+                    )}
+                    {editorLayout === "split" && (
+                      <div
+                        className={`split-divider ${draggingSplit ? "active" : ""}`}
+                        onMouseDown={startSplitDrag}
+                        title="拖拽调整分屏宽度"
+                      >
+                        <span />
                       </div>
                     )}
                     {editorLayout !== "editor" && <PdfPreview root={project.root} version={pdfVersion} />}
@@ -631,6 +770,10 @@ function App() {
       </div>
       {toast && <div className="toast">{toast}</div>}
       {promptNode}
+      {showSettings && (
+        <SettingsPanel settings={settings} onChange={updateSettings} onClose={() => setShowSettings(false)} />
+      )}
+      {showHelp && <ShortcutsHelp onClose={() => setShowHelp(false)} />}
     </div>
   );
 }
